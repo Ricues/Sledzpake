@@ -25,7 +25,21 @@
   </header>
 
   <main class="results" id="results" hidden>
+    <!-- Weryfikacja kodu pocztowego -->
+    <div id="zipGate" class="zip-gate" hidden>
+      <div>
+        <strong>Ochrona danych odbiorcy</strong><br/>
+        <small>Podaj <b>kod pocztowy odbiorcy</b>, aby odsłonić imię i nazwisko oraz numer referencyjny.</small>
+      </div>
+      <div class="zip-gate-inputs">
+        <input id="zipInput" type="text" placeholder="np. 12-345" inputmode="numeric" />
+        <button id="zipCheckBtn">Odsłoń</button>
+      </div>
+      <div id="zipHint" class="zip-hint" hidden></div>
+    </div>
+
     <div id="meta" class="meta-grid"></div>
+
     <h2>📜 Historia przesyłki</h2>
     <div id="timeline" class="timeline"></div>
   </main>
