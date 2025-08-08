@@ -55,10 +55,10 @@ async function search() {
       el.innerHTML = `
         <div class="icon">${icon}</div>
         <div>
-          <h3>${escapeHtml(e.status || e.state || e.event || "—")}</h3>
+          <h3>${escapeHtml(stripChinese(e.status || e.state || e.event || "—"))}</h3>
           <time>${escapeHtml(e.time || e.date || e.datetime || "")}</time>
-          ${e.location || e.place ? `<div class="loc">${escapeHtml(e.location || e.place)}</div>` : ""}
-          ${e.description || e.details ? `<p>${escapeHtml(e.description || e.details)}</p>` : ""}
+          ${e.location || e.place ? `<div class="loc">${escapeHtml(stripChinese(e.location || e.place))}</div>` : ""}
+          ${e.description || e.details ? `<p>${escapeHtml(stripChinese(e.description || e.details))}</p>` : ""}
         </div>`;
       timeline.appendChild(el);
     });
@@ -76,7 +76,7 @@ function renderMeta(container, data, number) {
   if (data.referenceNo) boxes.push(box("Numer referencyjny", data.referenceNo));     // widoczny
   if (data.consigneeName) boxes.push(boxLocked("Odbiorca", data.consigneeName));     // ukryty do czasu weryfikacji
   if (data.country) boxes.push(box("Kraj", data.country));
-  if (data.lastStatus) boxes.push(box("Ostatni status", data.lastStatus, true));
+  if (data.lastStatus) boxes.push(box("Ostatni status", stripChinese(data.lastStatus), true));
   container.innerHTML = boxes.join("");
 }
 
@@ -144,6 +144,13 @@ function escapeHtml(s){
 }
 function attrEscape(s){ return String(s).replace(/"/g, '&quot;'); }
 function normalizeRef(x){ return x ? String(x).trim().replace(/\s+/g,'').toUpperCase() : null; }
+
+/* usuwa znaki chińskie / japońskie / koreańskie */
+function stripChinese(str) {
+  if (!str) return "";
+  return str.replace(/[\u4e00-\u9fff\u3400-\u4dbf\u3000-\u303f]+/g, "").trim();
+}
+
 function pickIcon(e){
   const t = (e.status || e.details || e.description || "").toLowerCase();
   const loc = (e.location || "").toLowerCase();
