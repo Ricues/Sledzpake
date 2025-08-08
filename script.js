@@ -1,5 +1,4 @@
 const API_URL = "https://sledztracking.vercel.app/api/track";
-document.getElementById("year")?.textContent = new Date().getFullYear();
 
 document.getElementById("searchBtn").addEventListener("click", search);
 document.getElementById("tracking").addEventListener("keydown", e => {
@@ -16,20 +15,32 @@ async function search() {
 
   try {
     const res = await fetch(API_URL + "?number=" + encodeURIComponent(number));
-    const data = await res.json();
 
-    console.log("📦 Odpowiedź API:", data); // logowanie w konsoli
-
-    // jeśli API zwróci błąd
-    if (data.error) {
-      timeline.innerHTML = `<p style='color:red'>Błąd API: ${data.error}</p>`;
+    // Sprawdzenie statusu HTTP
+    if (!res.ok) {
+      timeline.innerHTML = `<p style="color:red">Błąd HTTP: ${res.status} ${res.statusText}</p>`;
       return;
     }
 
+    // Pobierz surowy tekst i spróbuj sparsować JSON
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      timeline.innerHTML = `<p style="color:red">Błąd: odpowiedź nie jest JSON-em</p><pre>${text}</pre>`;
+      return;
+    }
+
+    // Pokaż surowe dane (do debugowania)
+    console.log("📦 API response:", data);
+
+    // Rysuj timeline jeśli są zdarzenia
     renderTimeline(data, number);
+
   } catch (err) {
-    console.error("Błąd zapytania:", err);
-    timeline.innerHTML = "<p style='color:red'>Błąd połączenia: " + err.message + "</p>";
+    console.error("Błąd połączenia:", err);
+    timeline.innerHTML = `<p style="color:red">Błąd połączenia: ${err.message}</p>`;
   }
 }
 
@@ -37,16 +48,9 @@ function renderTimeline(data, number) {
   const timeline = document.getElementById("timeline");
   timeline.innerHTML = "";
 
-  // sprawdzamy różne możliwe pola
-  const events =
-    data.events ||
-    data.data ||
-    data.history ||
-    data.tracking ||
-    [];
-
+  const events = data.events || data.data || data.history || data.tracking || [];
   if (!Array.isArray(events) || events.length === 0) {
-    timeline.innerHTML = `<p>Brak danych śledzenia dla numeru: <strong>${number}</strong></p>`;
+    timeline.innerHTML = `<p>Brak danych śledzenia dla numeru: <strong>${number}</strong></p><pre>${JSON.stringify(data, null, 2)}</pre>`;
     return;
   }
 
@@ -62,4 +66,12 @@ function renderTimeline(data, number) {
     `;
     timeline.appendChild(div);
   });
+
+  // Dodaj surowe dane pod osią czasu (do testów)
+  const raw = document.createElement("pre");
+  raw.style.marginTop = "20px";
+  raw.style.background = "#111";
+  raw.style.padding = "10px";
+  raw.textContent = JSON.stringify(data, null, 2);
+  timeline.appendChild(raw);
 }
