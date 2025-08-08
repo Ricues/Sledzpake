@@ -3,7 +3,8 @@ const API_URL = "https://sledztracking.vercel.app/api/track";
 document.getElementById("searchBtn").addEventListener("click", search);
 document.getElementById("tracking").addEventListener("keydown", e => { if (e.key === "Enter") search(); });
 
-let expectedZip = null; // z API: postalCode/zipCode/postcode
+// bramka weryfikuje numer referencyjny
+let expectedRef = null;
 
 async function search() {
   const number = document.getElementById("tracking").value.trim();
@@ -11,56 +12,40 @@ async function search() {
 
   const meta = document.getElementById("meta");
   const timeline = document.getElementById("timeline");
-  const zipGate = document.getElementById("zipGate");
-  const zipHint = document.getElementById("zipHint");
+  const gate = document.getElementById("zipGate");
+  const hint = document.getElementById("zipHint");
+  const input = document.getElementById("zipInput");
+  const btn = document.getElementById("zipCheckBtn");
 
   document.getElementById("results").hidden = false;
   meta.innerHTML = "";
   timeline.innerHTML = "<p>Ładowanie…</p>";
-  zipGate.hidden = true;
-  zipHint.hidden = true;
-  expectedZip = null;
+  gate.hidden = true; hint.hidden = true; expectedRef = null;
 
   try {
     const res = await fetch(API_URL + "?number=" + encodeURIComponent(number));
     const text = await res.text();
-
     if (!res.ok) { timeline.innerHTML = msgBox(`Nie znaleziono przesyłki lub błąd serwera (HTTP ${res.status}).`, "error"); return; }
-    let data; try { data = JSON.parse(text); } catch { timeline.innerHTML = msgBox("Odpowiedź API nie jest JSON-em.", "error"); return; }
 
-    // zapamiętaj spodziewany kod pocztowy z API (jeśli jest)
-    expectedZip = normalizeZip(data.postalCode || data.zipCode || data.postcode || null);
+    let data; 
+    try { data = JSON.parse(text); } 
+    catch { timeline.innerHTML = msgBox("Odpowiedź API nie jest JSON-em.", "error"); return; }
+
+    // zapamiętaj numer referencyjny z API
+    expectedRef = normalizeRef(data.referenceNo || null);
 
     renderMeta(meta, data, number);
 
     const events = data.details || data.events || data.data || data.history || [];
-    if (!Array.isArray(events) || events.length === 0) { timeline.innerHTML = msgBox(`Brak danych śledzenia dla numeru: ${number}`, "warn"); return; }
-
-    // jeśli mamy kod z API — pokaż bramkę weryfikacji
-    if (expectedZip) {
-      zipGate.hidden = false;
-      zipHint.hidden = true;
-      document.getElementById("zipCheckBtn").onclick = () => {
-        const typed = normalizeZip(document.getElementById("zipInput").value);
-        if (!typed) { zipHint.textContent = "Wpisz kod pocztowy w formacie 12-345"; zipHint.hidden = false; return; }
-        if (typed === expectedZip) {
-          revealSensitive(); // odblokuj pola
-          zipGate.hidden = true;
-        } else {
-          zipHint.textContent = "Niepoprawny kod. Spróbuj ponownie.";
-          zipHint.hidden = false;
-        }
-      };
-    } else {
-      // brak kodu w danych — zostaw pola zablokowane i pokaż informację
-      zipGate.hidden = false;
-      document.getElementById("zipHint").textContent = "Brak kodu pocztowego w danych API — nie można zweryfikować.";
-      document.getElementById("zipHint").hidden = false;
-      document.getElementById("zipCheckBtn").disabled = true;
-      document.getElementById("zipInput").disabled = true;
+    if (!Array.isArray(events) || events.length === 0) { 
+      timeline.innerHTML = msgBox(`Brak danych śledzenia dla numeru: ${number}`, "warn"); 
+      return; 
     }
 
-    // rysuj timeline
+    // bramka: oczekujemy podania numeru referencyjnego
+    setupRefGate(expectedRef);
+
+    // timeline
     timeline.innerHTML = "";
     events.forEach((e, i) => {
       const icon = pickIcon(e);
@@ -88,39 +73,67 @@ async function search() {
 function renderMeta(container, data, number) {
   const boxes = [];
   boxes.push(box("Numer przesyłki", data.trackingNumber || number, true));
-
-  // Numer referencyjny i Odbiorca – ukryte do czasu poprawnego kodu
-  if (data.referenceNo) boxes.push(boxLocked("Numer referencyjny", data.referenceNo, "ref"));
-  if (data.consigneeName) boxes.push(boxLocked("Odbiorca", data.consigneeName, "name"));
-
+  if (data.referenceNo) boxes.push(box("Numer referencyjny", data.referenceNo));     // widoczny
+  if (data.consigneeName) boxes.push(boxLocked("Odbiorca", data.consigneeName));     // ukryty do czasu weryfikacji
   if (data.country) boxes.push(box("Kraj", data.country));
   if (data.lastStatus) boxes.push(box("Ostatni status", data.lastStatus, true));
-
   container.innerHTML = boxes.join("");
 }
 
 function revealSensitive() {
-  document.querySelectorAll(".box.locked").forEach(b => b.classList.remove("locked"));
+  document.querySelectorAll(".box.locked .value").forEach(el => {
+    const real = el.dataset.real;
+    if (real) el.textContent = real;
+    el.classList.remove("masked");
+    el.removeAttribute("data-real");
+    el.closest(".box")?.classList.remove("locked");
+  });
 }
 
+/* ===== Gate (verify reference) ===== */
+function setupRefGate(expectedRef) {
+  const gate = document.getElementById("zipGate");
+  const hint = document.getElementById("zipHint");
+  const input = document.getElementById("zipInput");
+  const btn = document.getElementById("zipCheckBtn");
+
+  if (expectedRef) {
+    gate.hidden = false;
+    input.disabled = false; btn.disabled = false;
+    hint.hidden = true; input.value = "";
+    btn.onclick = () => {
+      const typed = normalizeRef(input.value);
+      if (!typed) { hint.textContent = "Wpisz numer referencyjny (litery/cyfry)."; hint.hidden = false; return; }
+      if (typed === expectedRef) {
+        revealSensitive();
+        gate.hidden = true;
+      } else {
+        hint.textContent = "Niepoprawny numer referencyjny. Spróbuj ponownie.";
+        hint.hidden = false;
+      }
+    };
+  } else {
+    gate.hidden = false;
+    input.disabled = true; btn.disabled = true;
+    hint.textContent = "Brak numeru referencyjnego w danych API — nie można zweryfikować.";
+    hint.hidden = false;
+  }
+}
+
+/* ===== helpers ===== */
 function box(label, value, wide=false){
   return `<div class="box${wide ? " last" : ""}">
             <span>${label}</span>
             <strong class="value">${escapeHtml(value)}</strong>
           </div>`;
 }
-function boxLocked(label, value, key){
-  return `<div class="box locked" data-key="${key}">
+function boxLocked(label, value){
+  const real = String(value);
+  const mask = "•".repeat(Math.min(12, Math.max(6, real.length)));
+  return `<div class="box locked">
             <span>${label}</span>
-            <strong class="value">${escapeHtml(value)}</strong>
+            <strong class="value masked" data-real="${attrEscape(real)}">${mask}</strong>
           </div>`;
-}
-
-/* ===== helpers ===== */
-function normalizeZip(x){
-  if (!x) return null;
-  const digits = String(x).replace(/[^0-9]/g, "");
-  return digits.length >= 5 ? digits.slice(0,5) : null; // PL: 5 cyfr
 }
 function msgBox(text, type="info"){
   const col = type==="error" ? "#ffb3b3" : type==="warn" ? "#ffd37a" : "#b3e5ff";
@@ -129,6 +142,8 @@ function msgBox(text, type="info"){
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
+function attrEscape(s){ return String(s).replace(/"/g, '&quot;'); }
+function normalizeRef(x){ return x ? String(x).trim().replace(/\s+/g,'').toUpperCase() : null; }
 function pickIcon(e){
   const t = (e.status || e.details || e.description || "").toLowerCase();
   const loc = (e.location || "").toLowerCase();
