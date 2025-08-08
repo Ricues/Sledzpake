@@ -10,68 +10,91 @@ async function search() {
   if (!number) return alert("Podaj numer paczki");
 
   const timeline = document.getElementById("timeline");
-  timeline.innerHTML = "<p>Ładowanie...</p>";
+  const meta = document.getElementById("meta");
+
   document.getElementById("results").hidden = false;
+  meta.innerHTML = "";
+  timeline.innerHTML = "<p>Ładowanie…</p>";
 
   try {
     const res = await fetch(API_URL + "?number=" + encodeURIComponent(number));
-
-    // Sprawdzenie statusu HTTP
-    if (!res.ok) {
-      timeline.innerHTML = `<p style="color:red">Błąd HTTP: ${res.status} ${res.statusText}</p>`;
-      return;
-    }
-
-    // Pobierz surowy tekst i spróbuj sparsować JSON
     const text = await res.text();
+    if (!res.ok) {
+      timeline.innerHTML = msgBox(`Nie znaleziono przesyłki lub błąd serwera (HTTP ${res.status}).`, "error");
+      return;
+    }
     let data;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      timeline.innerHTML = `<p style="color:red">Błąd: odpowiedź nie jest JSON-em</p><pre>${text}</pre>`;
+    try { data = JSON.parse(text); }
+    catch { timeline.innerHTML = msgBox("Odpowiedź API nie jest JSON-em.", "error"); return; }
+
+    renderMeta(meta, data, number);
+
+    // u Ciebie lista zdarzeń przychodzi jako `details`
+    const events = data.details || data.events || data.data || data.history || [];
+    if (!Array.isArray(events) || events.length === 0) {
+      timeline.innerHTML = msgBox(`Brak danych śledzenia dla numeru: ${number}`, "warn");
       return;
     }
 
-    // Pokaż surowe dane (do debugowania)
-    console.log("📦 API response:", data);
-
-    // Rysuj timeline jeśli są zdarzenia
-    renderTimeline(data, number);
+    timeline.innerHTML = "";
+    events.forEach((e, i) => {
+      const icon = pickIcon(e);
+      const el = document.createElement("div");
+      el.className = "event";
+      el.style.animationDelay = (i * 0.08) + "s";
+      el.innerHTML = `
+        <div class="icon">${icon}</div>
+        <div>
+          <h3>${escapeHtml(e.status || e.state || e.event || "—")}</h3>
+          <time>${escapeHtml(e.time || e.date || e.datetime || "")}</time>
+          ${e.location || e.place ? `<div class="loc">${escapeHtml(e.location || e.place)}</div>` : ""}
+          ${e.description || e.details ? `<p>${escapeHtml(e.description || e.details)}</p>` : ""}
+        </div>
+      `;
+      timeline.appendChild(el);
+    });
 
   } catch (err) {
-    console.error("Błąd połączenia:", err);
-    timeline.innerHTML = `<p style="color:red">Błąd połączenia: ${err.message}</p>`;
+    console.error(err);
+    timeline.innerHTML = msgBox("Błąd połączenia: " + err.message, "error");
   }
 }
 
-function renderTimeline(data, number) {
-  const timeline = document.getElementById("timeline");
-  timeline.innerHTML = "";
+/* ===== helpers ===== */
 
-  const events = data.events || data.data || data.history || data.tracking || [];
-  if (!Array.isArray(events) || events.length === 0) {
-    timeline.innerHTML = `<p>Brak danych śledzenia dla numeru: <strong>${number}</strong></p><pre>${JSON.stringify(data, null, 2)}</pre>`;
-    return;
+function renderMeta(container, data, number) {
+  const boxes = [];
+  boxes.push(box("Numer przesyłki", data.trackingNumber || number, true));
+  if (data.referenceNo) boxes.push(box("Numer referencyjny", data.referenceNo));
+  if (data.country) boxes.push(box("Kraj", data.country));
+  if (data.lastStatus) boxes.push(box("Ostatni status", data.lastStatus, true));
+  container.innerHTML = boxes.join("");
+
+  function box(label, value, wide=false){
+    return `<div class="box${wide ? " last" : ""}"><span>${label}</span><strong>${escapeHtml(value)}</strong></div>`;
   }
+}
 
-  events.forEach((e, i) => {
-    const div = document.createElement("div");
-    div.className = "event";
-    div.style.animationDelay = (i * 0.1) + "s";
-    div.innerHTML = `
-      <h3>${e.status || e.state || e.event || "—"}</h3>
-      <time>${e.time || e.date || e.datetime || ""}</time>
-      <p>${e.description || e.details || ""}</p>
-      <p style="color:#888">${e.location || e.place || ""}</p>
-    `;
-    timeline.appendChild(div);
-  });
+function msgBox(text, type="info"){
+  const col = type==="error" ? "#ffb3b3" : type==="warn" ? "#ffd37a" : "#b3e5ff";
+  return `<p style="background:#141414;border:1px solid rgba(255,255,255,.08);border-left:4px solid ${col};padding:12px;border-radius:10px">${escapeHtml(text)}</p>`;
+}
 
-  // Dodaj surowe dane pod osią czasu (do testów)
-  const raw = document.createElement("pre");
-  raw.style.marginTop = "20px";
-  raw.style.background = "#111";
-  raw.style.padding = "10px";
-  raw.textContent = JSON.stringify(data, null, 2);
-  timeline.appendChild(raw);
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+function pickIcon(e){
+  const t = (e.status || e.details || e.description || "").toLowerCase();
+  const loc = (e.location || "").toLowerCase();
+  if (t.includes("dostarcz") || t.includes("delivered")) return "✅";
+  if (t.includes("doręczen") || t.includes("kurier") || t.includes("out for delivery")) return "🚚";
+  if (t.includes("nadana") || t.includes("odebrana") || t.includes("picked up")) return "📦";
+  if (t.includes("sortown") || t.includes("centrum operacyjne") || t.includes("hub")) return "🏭";
+  if (t.includes("odprawa celna") || t.includes("customs")) return "🛃";
+  if (t.includes("lot") || t.includes("air") || t.includes("przylecia") || t.includes("odlecia")) return "✈️";
+  if (t.includes("opóźn") || t.includes("exception") || t.includes("failed")) return "⚠️";
+  if (t.includes("skan") || t.includes("scan")) return "🔎";
+  if (loc.includes("port") || loc.includes("terminal")) return "🛳️";
+  return "📍";
 }
