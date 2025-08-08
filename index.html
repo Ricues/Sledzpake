@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sledzpake — śledzenie przesyłek</title>
+  <meta name="description" content="Sledzpake — szybkie i stylowe śledzenie Twojej paczki.">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="glow"></div>
+  <header class="container">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">SP</div>
+      <h1>Sledzpake</h1>
+    </div>
+    <p class="tag">Ładne śledzenie paczek — szybko i czytelnie.</p>
+  </header>
+
+  <main class="container">
+    <section class="card search">
+      <label for="tracking" class="label">Numer przesyłki</label>
+      <div class="row">
+        <input id="tracking" type="text" placeholder="NP. 1Z9999999999999999" autocomplete="off" />
+        <button id="searchBtn" class="btn">Śledź</button>
+      </div>
+      <div class="helper">
+        Obsługujemy źródło: <a href="http://120.78.2.65:8082/trackIndex.htm" target="_blank" rel="noreferrer">120.78.2.65:8082</a>
+      </div>
+      <details class="details">
+        <summary>⚙️ Problemy z CORS? (kliknij)</summary>
+        <p>Jeśli przeglądarka blokuje zapytania do zewnętrznej strony, uruchom mały proxy-serwer (instrukcja w <code>proxy/README.md</code>) i ustaw adres w Ustawieniach.</p>
+      </details>
+    </section>
+
+    <section class="card results" id="results" hidden>
+      <div class="head">
+        <h2>Stan przesyłki</h2>
+        <button id="settingsBtn" class="btn btn-ghost">Ustawienia</button>
+      </div>
+      <div id="meta" class="meta"></div>
+      <ol id="timeline" class="timeline"></ol>
+    </section>
+
+    <dialog id="settingsDlg">
+      <form method="dialog">
+        <h3>Ustawienia</h3>
+        <label class="label" for="proxyUrl">Adres proxy API</label>
+        <input id="proxyUrl" type="url" placeholder="np. http://localhost:8787/track" />
+        <div class="row dialog-actions">
+          <button class="btn btn-ghost" value="cancel">Anuluj</button>
+          <button class="btn" id="saveSettings" value="default">Zapisz</button>
+        </div>
+      </form>
+    </dialog>
+  </main>
+
+  <footer class="container footer">
+    <small>© <span id="year"></span> Sledzpake • styl inspirowany gradientem: nocny czarny + pomarańcz‑czerwony</small>
+  </footer>
+
+  <template id="itemTpl">
+    <li class="item">
+      <div class="dot"></div>
+      <div class="content">
+        <div class="row firstline">
+          <strong class="status"></strong>
+          <time class="time"></time>
+        </div>
+        <div class="desc"></div>
+        <div class="loc"></div>
+      </div>
+    </li>
+  </template>
+
+  <script src="script.js"></script>
+</body>
+</html>
