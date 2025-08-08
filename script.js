@@ -73,7 +73,7 @@ async function search() {
 function renderMeta(container, data, number) {
   const boxes = [];
   boxes.push(box("Numer przesyłki", data.trackingNumber || number, true));
-  if (data.referenceNo) boxes.push(box("Numer referencyjny", data.referenceNo));     // widoczny
+  if (data.referenceNo) boxes.push(boxLocked("Numer referencyjny", data.referenceNo));     // ukryty
   if (data.consigneeName) boxes.push(boxLocked("Odbiorca", data.consigneeName));     // ukryty do czasu weryfikacji
   if (data.country) boxes.push(box("Kraj", data.country));
   if (data.lastStatus) boxes.push(box("Ostatni status", stripChinese(data.lastStatus), true));
