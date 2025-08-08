@@ -25,14 +25,14 @@
   </header>
 
   <main class="results" id="results" hidden>
-    <!-- Weryfikacja kodu pocztowego -->
+    <!-- Bramka: weryfikacja numeru referencyjnego -->
     <div id="zipGate" class="zip-gate" hidden>
       <div>
         <strong>Ochrona danych odbiorcy</strong><br/>
-        <small>Podaj <b>kod pocztowy odbiorcy</b>, aby odsłonić imię i nazwisko oraz numer referencyjny.</small>
+        <small>Wpisz <b>numer referencyjny przesyłki</b>, aby odsłonić imię i nazwisko odbiorcy.</small>
       </div>
       <div class="zip-gate-inputs">
-        <input id="zipInput" type="text" placeholder="np. 12-345" inputmode="numeric" />
+        <input id="zipInput" type="text" placeholder="np. R25072744183" />
         <button id="zipCheckBtn">Odsłoń</button>
       </div>
       <div id="zipHint" class="zip-hint" hidden></div>
